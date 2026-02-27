@@ -540,6 +540,39 @@ header {
   letter-spacing: 0.12em;
 }
 
+.overlay-open-btn {
+  display: inline-block;
+  padding: 16px 40px;
+  background: linear-gradient(135deg, rgba(212,169,106,0.2), rgba(232,196,138,0.1));
+  border: 1px solid rgba(212,169,106,0.6);
+  border-radius: 14px;
+  color: var(--dawn-warm);
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-decoration: none;
+  transition: all 0.25s;
+  box-shadow: 0 0 24px rgba(212,169,106,0.12);
+  animation: glowPulse 2s ease-in-out infinite;
+}
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 16px rgba(212,169,106,0.1); border-color: rgba(212,169,106,0.5); }
+  50%     { box-shadow: 0 0 32px rgba(212,169,106,0.3); border-color: rgba(212,169,106,0.9); }
+}
+.overlay-open-btn:hover {
+  background: linear-gradient(135deg, rgba(212,169,106,0.3), rgba(232,196,138,0.15));
+  transform: scale(1.03);
+}
+
+.overlay-msg-hint {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.8;
+  letter-spacing: 0.05em;
+}
+
 .overlay-link {
   font-size: 0.72rem;
   color: var(--dawn-gold);
@@ -674,7 +707,7 @@ header {
     キャンセル
   </button>
   <button class="btn-ghost show" id="testBtn" onclick="if(videoId){fired=false;fireAlarm()}else{showToast('先にURLをセットしてください')}" style="border-color:rgba(212,169,106,0.3);color:var(--dim);margin-top:4px;">
-    🔔 テスト再生（今すぐ発火）
+    🔔 テスト（今すぐオーバーレイ表示）
   </button>
 
 </div><!-- /wrapper -->
@@ -687,8 +720,9 @@ header {
   </div>
   <div class="overlay-message">
     <div class="overlay-msg-icon">☀</div>
-    <div class="overlay-msg-text">YouTubeを新しいタブで開きました</div>
-    <a id="overlayLink" href="#" target="_blank" class="overlay-link">もう一度開く</a>
+    <div class="overlay-msg-text">タップしてYouTubeを開く</div>
+    <a id="overlayLink" href="#" target="_blank" class="overlay-open-btn">▶ YouTube を開く</a>
+    <div class="overlay-msg-hint">ポップアップブロックを回避するため<br>ボタンを押して開いてください</div>
   </div>
   <div class="overlay-actions">
     <button class="btn-snooze" onclick="handleSnooze()">☽ スヌーズ (+5分)</button>
@@ -814,12 +848,11 @@ function checkAlarm(now) {
 
 function fireAlarm() {
   const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  // オーバーレイを表示
+  // リンクを設定
+  const link = document.getElementById('overlayLink');
+  link.href = ytUrl;
+  // オーバーレイを表示（クリックで開く方式 — ポップアップブロック回避）
   document.getElementById('overlay').classList.add('show');
-  // 「もう一度開く」リンクを設定
-  document.getElementById('overlayLink').href = ytUrl;
-  // YouTubeを新しいタブで開く（autoplay制限を完全回避）
-  window.open(ytUrl, '_blank');
 }
 
 /* ── Snooze ── */
