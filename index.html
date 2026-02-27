@@ -839,7 +839,7 @@ function checkAlarm(now) {
 ── */
 function fireAlarm() {
   // window.location.href はポップアップブロック対象外 — 確実にYouTubeへ遷移
-  window.location.href = `https://www.youtube.com/watch?v=${alarm.videoId}`;
+  window.location.href = `https://www.youtube.com/watch?v=${alarm.videoId}&autoplay=1`;
 }
 
 /* ── Toast ── */
