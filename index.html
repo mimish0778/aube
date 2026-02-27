@@ -696,7 +696,7 @@ header {
     <div class="url-valid" id="urlValid">
       <span>✦</span> 動画を認識しました
     </div>
-    <p class="note" style="margin-top:10px;">YouTubeのURLをそのまま貼り付けてください<br>タブを開いたまま使用してください</p>
+    <p class="note" style="margin-top:10px;">YouTubeのURLをそのまま貼り付けてください<br>アラーム時刻になるとこのページがYouTubeに自動で切り替わります</p>
   </div>
 
   <!-- ─── Set / Cancel ─── -->
@@ -706,70 +706,66 @@ header {
   <button class="btn-ghost" id="cancelBtn" onclick="handleCancel()">
     キャンセル
   </button>
-  <button class="btn-ghost show" id="testBtn" onclick="if(videoId){fired=false;fireAlarm()}else{showToast('先にURLをセットしてください')}" style="border-color:rgba(212,169,106,0.3);color:var(--dim);margin-top:4px;">
-    🔔 テスト（今すぐオーバーレイ表示）
-  </button>
 
 </div><!-- /wrapper -->
-
-<!-- ─── Player Overlay ─── -->
-<div class="overlay" id="overlay">
-  <div class="overlay-title">
-    <div class="overlay-greeting">おはようございます</div>
-    <div class="overlay-sub">Good Morning — Aube</div>
-  </div>
-  <div class="overlay-message">
-    <div class="overlay-msg-icon">☀</div>
-    <div class="overlay-msg-text">タップしてYouTubeを開く</div>
-    <a id="overlayLink" href="#" target="_blank" class="overlay-open-btn">▶ YouTube を開く</a>
-    <div class="overlay-msg-hint">ポップアップブロックを回避するため<br>ボタンを押して開いてください</div>
-  </div>
-  <div class="overlay-actions">
-    <button class="btn-snooze" onclick="handleSnooze()">☽ スヌーズ (+5分)</button>
-    <button class="btn-dismiss" onclick="handleDismiss()">✕ アラームを止める</button>
-  </div>
-</div>
 
 <!-- ═══════════════════════════════════════════
      SCRIPT
 ═══════════════════════════════════════════ -->
 <script>
-/* ── State (must be declared first, before any function that references them) ── */
-let alarmTarget = null; // {h, m}
-let videoId     = null;
-let fired       = false;
+/* ══════════════════════════════════════════
+   STATE — localStorage で永続化
+   キー: aube_alarm = JSON { h, m, videoId }
+══════════════════════════════════════════ */
+const STORAGE_KEY = 'aube_alarm';
+
+function saveAlarm(h, m, vid) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ h, m, videoId: vid }));
+}
+function loadAlarm() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+}
+function clearAlarm() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+/* ── 起動時: 保存済みアラームを復元 ── */
+let alarm = loadAlarm(); // { h, m, videoId } | null
+let fired = false;
 
 /* ── Populate selects ── */
 const hourSel = document.getElementById('pickHour');
 const minSel  = document.getElementById('pickMin');
+for (let h = 0; h < 24; h++) hourSel.add(new Option(String(h).padStart(2,'0'), h));
+for (let m = 0; m < 60; m++) minSel.add(new Option(String(m).padStart(2,'0'), m));
 
-for (let h = 0; h < 24; h++) {
-  const o = new Option(String(h).padStart(2,'0'), h);
-  hourSel.add(o);
+/* ── 保存済みアラームをUIに反映 ── */
+function restoreUI() {
+  if (!alarm) return;
+  hourSel.value = alarm.h;
+  minSel.value  = alarm.m;
+  document.getElementById('urlInput').value = `https://www.youtube.com/watch?v=${alarm.videoId}`;
+  document.getElementById('urlValid').classList.add('show');
+  const tStr = `${String(alarm.h).padStart(2,'0')}:${String(alarm.m).padStart(2,'0')}`;
+  document.getElementById('badgeTime').textContent = tStr;
+  document.getElementById('alarmBadge').classList.add('visible');
+  document.getElementById('setBtn').textContent = 'アラームを更新';
+  document.getElementById('cancelBtn').classList.add('show');
 }
-for (let m = 0; m < 60; m++) {
-  const o = new Option(String(m).padStart(2,'0'), m);
-  minSel.add(o);
-}
-hourSel.value = 7;
-minSel.value  = 0;
+restoreUI();
 
 /* ── Clock ── */
 const weekdays = ['日','月','火','水','木','金','土'];
 
 function tick() {
   const n = new Date();
-  const hh = String(n.getHours()).padStart(2,'0');
-  const mm = String(n.getMinutes()).padStart(2,'0');
-  const ss = String(n.getSeconds()).padStart(2,'0');
-  document.getElementById('ch').textContent = hh;
-  document.getElementById('cm').textContent = mm;
-  document.getElementById('cs').textContent = ss;
+  document.getElementById('ch').textContent = String(n.getHours()).padStart(2,'0');
+  document.getElementById('cm').textContent = String(n.getMinutes()).padStart(2,'0');
+  document.getElementById('cs').textContent = String(n.getSeconds()).padStart(2,'0');
   document.getElementById('dateStr').textContent =
     `${n.getFullYear()} . ${String(n.getMonth()+1).padStart(2,'0')} . ${String(n.getDate()).padStart(2,'0')} — ${weekdays[n.getDay()]}曜日`;
-
-  if (alarmTarget && !fired) checkAlarm(n);
-  if (alarmTarget) updateCountdown(n);
+  if (alarm && !fired) checkAlarm(n);
+  if (alarm) updateCountdown(n);
 }
 setInterval(tick, 1000);
 tick();
@@ -779,25 +775,21 @@ function extractId(url) {
   const m = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
-
 document.getElementById('urlInput').addEventListener('input', function() {
-  const v = extractId(this.value);
-  document.getElementById('urlValid').classList.toggle('show', !!v);
+  document.getElementById('urlValid').classList.toggle('show', !!extractId(this.value));
 });
-
 
 /* ── Set alarm ── */
 function handleSet() {
   const h  = parseInt(hourSel.value);
   const m  = parseInt(minSel.value);
   const id = extractId(document.getElementById('urlInput').value.trim());
-
   if (isNaN(h) || isNaN(m)) { showToast('時刻を設定してください'); return; }
   if (!id) { showToast('有効なYouTube URLを入力してください'); return; }
 
-  alarmTarget = { h, m };
-  videoId     = id;
-  fired       = false;
+  alarm = { h, m, videoId: id };
+  fired = false;
+  saveAlarm(h, m, id);
 
   const tStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   document.getElementById('badgeTime').textContent = tStr;
@@ -808,20 +800,18 @@ function handleSet() {
 }
 
 function handleCancel() {
-  alarmTarget = null;
-  videoId     = null;
-  fired       = false;
+  alarm = null; fired = false;
+  clearAlarm();
   document.getElementById('alarmBadge').classList.remove('visible');
   document.getElementById('cancelBtn').classList.remove('show');
   document.getElementById('setBtn').textContent = 'アラームをセット';
 }
 
-/* ── Countdown text ── */
+/* ── Countdown ── */
 function updateCountdown(now) {
-  if (!alarmTarget) return;
-  const { h, m } = alarmTarget;
+  if (!alarm) return;
   let target = new Date(now);
-  target.setHours(h, m, 0, 0);
+  target.setHours(alarm.h, alarm.m, 0, 0);
   if (target <= now) target.setDate(target.getDate() + 1);
   const diff = Math.floor((target - now) / 1000);
   const hh = Math.floor(diff / 3600);
@@ -834,62 +824,38 @@ function updateCountdown(now) {
   document.getElementById('badgeCountdown').textContent = t;
 }
 
-/* ── Check & fire ──
-   秒 === 0 の一瞬に頼らず「その分に入ったか」で判定し、
-   fired フラグで二重起動を防ぐ
-── */
+/* ── Check & fire ── */
 function checkAlarm(now) {
-  if (!alarmTarget || fired) return;
-  if (now.getHours() === alarmTarget.h && now.getMinutes() === alarmTarget.m) {
+  if (!alarm || fired) return;
+  if (now.getHours() === alarm.h && now.getMinutes() === alarm.m) {
     fired = true;
     fireAlarm();
   }
 }
 
+/* ── Fire: このページ自体をYouTubeにリダイレクト ──
+   window.location.href はブラウザのポップアップブロック対象外。
+   確実に遷移する。
+── */
 function fireAlarm() {
-  const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  // リンクを設定
-  const link = document.getElementById('overlayLink');
-  link.href = ytUrl;
-  // オーバーレイを表示（クリックで開く方式 — ポップアップブロック回避）
-  document.getElementById('overlay').classList.add('show');
+  // window.location.href はポップアップブロック対象外 — 確実にYouTubeへ遷移
+  window.location.href = `https://www.youtube.com/watch?v=${alarm.videoId}`;
 }
 
-/* ── Snooze ── */
-function handleSnooze() {
-  document.getElementById('overlay').classList.remove('show');
-
-  const n = new Date();
-  n.setMinutes(n.getMinutes() + 5);
-  alarmTarget = { h: n.getHours(), m: n.getMinutes() };
-  fired = false;
-
-  const tStr = `${String(alarmTarget.h).padStart(2,'0')}:${String(alarmTarget.m).padStart(2,'0')}`;
-  document.getElementById('badgeTime').textContent = tStr;
-  hourSel.value = alarmTarget.h;
-  minSel.value  = alarmTarget.m;
-}
-
-/* ── Dismiss ── */
-function handleDismiss() {
-  document.getElementById('overlay').classList.remove('show');
-  handleCancel();
-}
-
-/* ── Simple toast ── */
+/* ── Toast ── */
 function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
   Object.assign(t.style, {
     position:'fixed', bottom:'32px', left:'50%', transform:'translateX(-50%)',
-    background: 'rgba(26,35,56,0.95)', border:'1px solid rgba(212,169,106,0.3)',
+    background:'rgba(26,35,56,0.95)', border:'1px solid rgba(212,169,106,0.3)',
     color:'#d4a96a', padding:'12px 24px', borderRadius:'10px',
     fontFamily:"'Outfit',sans-serif", fontSize:'0.78rem', letterSpacing:'0.08em',
-    zIndex:'999', whiteSpace:'nowrap', animation:'fadeIn 0.3s ease',
-    boxShadow:'0 4px 20px rgba(0,0,0,0.4)'
+    zIndex:'999', whiteSpace:'nowrap', boxShadow:'0 4px 20px rgba(0,0,0,0.4)',
+    animation:'fadeIn 0.3s ease'
   });
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+  setTimeout(() => t.remove(), 2800);
 }
 </script>
 </body>
