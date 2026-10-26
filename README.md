@@ -6,6 +6,8 @@ HTML ファイル1つで動作し、インストールやビルドは不要で�
 
 **デモ:** https://mimish0778.github.io/aube/
 
+![Aube の画面](images/screenshot.png)
+
 ## 機能
 
 - 現在時刻（時・分・秒）と日付・曜日の表示
@@ -74,3 +76,7 @@ https://www.youtube.com/shorts/VIDEO_ID
 - フォント: [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond)、[Outfit](https://fonts.google.com/specimen/Outfit)（Google Fonts）
 
 配色は `index.html` 内の `:root` に CSS 変数（`--dawn-gold`、`--midnight` など）としてまとめてあります。
+
+## ライセンス
+
+[MIT License](LICENSE)
