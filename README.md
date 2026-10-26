@@ -6,7 +6,7 @@ HTML ファイル1つで動作し、インストールやビルドは不要で�
 
 **デモ:** https://mimish0778.github.io/aube/
 
-![Aube の画面](images/screenshot.png)
+<img src="images/screenshot.png" alt="Aube の画面" width="360">
 
 ## 機能
 
