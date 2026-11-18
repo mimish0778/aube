@@ -743,6 +743,20 @@ function clearAlarm() {
 let alarm = loadAlarm(); // { h, m, videoId } | null
 let fired = false;
 
+/* 次に鳴らす日時。「時・分が一致したら鳴らす」方式だと、バックグラウンドでタイマーが
+   間引かれてその 1 分間に確認が行われなかったときに鳴らないため、日時で判定する */
+const LATE_LIMIT_MS = 30 * 60 * 1000; // これより遅れたら（スリープ明けなど）鳴らさずに翌日へ
+let target = null;
+
+function nextTarget(now) {
+  const t = new Date(now);
+  t.setHours(alarm.h, alarm.m, 0, 0);
+  // 設定時刻の 1 分間のうちに開いた・設定したときは今日の分を鳴らす（従来と同じ）
+  if (now - t >= 60 * 1000) t.setDate(t.getDate() + 1);
+  return t;
+}
+if (alarm) target = nextTarget(new Date());
+
 /* ── Populate selects ── */
 const hourSel = document.getElementById('pickHour');
 const minSel  = document.getElementById('pickMin');
@@ -799,6 +813,7 @@ function handleSet() {
 
   alarm = { h, m, videoId: id };
   fired = false;
+  target = nextTarget(new Date());
   saveAlarm(h, m, id);
 
   const tStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
@@ -810,7 +825,7 @@ function handleSet() {
 }
 
 function handleCancel() {
-  alarm = null; fired = false;
+  alarm = null; fired = false; target = null;
   clearAlarm();
   document.getElementById('alarmBadge').classList.remove('visible');
   document.getElementById('cancelBtn').classList.remove('show');
@@ -819,11 +834,8 @@ function handleCancel() {
 
 /* ── Countdown ── */
 function updateCountdown(now) {
-  if (!alarm) return;
-  let target = new Date(now);
-  target.setHours(alarm.h, alarm.m, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
-  const diff = Math.floor((target - now) / 1000);
+  if (!alarm || !target) return;
+  const diff = Math.max(0, Math.floor((target - now) / 1000));
   const hh = Math.floor(diff / 3600);
   const mm = Math.floor((diff % 3600) / 60);
   const ss = diff % 60;
@@ -836,10 +848,12 @@ function updateCountdown(now) {
 
 /* ── Check & fire ── */
 function checkAlarm(now) {
-  if (!alarm || fired) return;
-  if (now.getHours() === alarm.h && now.getMinutes() === alarm.m) {
+  if (!alarm || fired || !target || now < target) return;
+  if (now - target <= LATE_LIMIT_MS) {
     fired = true;
     fireAlarm();
+  } else {
+    target = nextTarget(now); // 大きく遅れたときは鳴らさず、翌日の同じ時刻に設定し直す
   }
 }
 
