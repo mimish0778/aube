@@ -748,11 +748,19 @@ let fired = false;
 const LATE_LIMIT_MS = 30 * 60 * 1000; // これより遅れたら（スリープ明けなど）鳴らさずに翌日へ
 let target = null;
 
+/* 最後に鳴らした予定時刻。鳴ったあと 1 分以内に「戻る」などでこのページを開き直したとき、
+   同じ回をもう一度鳴らして YouTube へ移動し直さないようにする */
+const FIRED_KEY = 'aube_last_fired';
+function loadLastFired() {
+  try { return Number(localStorage.getItem(FIRED_KEY)) || 0; } catch { return 0; }
+}
+
 function nextTarget(now) {
   const t = new Date(now);
   t.setHours(alarm.h, alarm.m, 0, 0);
   // 設定時刻の 1 分間のうちに開いた・設定したときは今日の分を鳴らす（従来と同じ）
-  if (now - t >= 60 * 1000) t.setDate(t.getDate() + 1);
+  // ただし、その回をすでに鳴らしていれば翌日にする
+  if (now - t >= 60 * 1000 || t.getTime() <= loadLastFired()) t.setDate(t.getDate() + 1);
   return t;
 }
 if (alarm) target = nextTarget(new Date());
@@ -851,6 +859,7 @@ function checkAlarm(now) {
   if (!alarm || fired || !target || now < target) return;
   if (now - target <= LATE_LIMIT_MS) {
     fired = true;
+    try { localStorage.setItem(FIRED_KEY, String(target.getTime())); } catch {}
     fireAlarm();
   } else {
     target = nextTarget(now); // 大きく遅れたときは鳴らさず、翌日の同じ時刻に設定し直す
